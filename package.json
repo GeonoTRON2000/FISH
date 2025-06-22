@@ -1,0 +1,20 @@
+{
+  "name": "fish",
+  "version": "0.0.1",
+  "description": "Bot to manage the GT discord server",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GeonoTRON2000/fish.git"
+  },
+  "author": "GeonoTRON2000",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GeonoTRON2000/fish/issues"
+  },
+  "homepage": "https://github.com/GeonoTRON2000/fish#readme",
+  "dependencies": {
+    "discord.js": "^14.20.0"
+  }
+}
