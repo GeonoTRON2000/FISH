@@ -1,6 +1,6 @@
 const utils = require('./utils.js');
+const commands = require('./commands.js');
 let config = utils.load_config();
-let commands = utils.load_commands();
 const discord = require('discord.js');
 
 const app = new discord.Client({
@@ -9,18 +9,10 @@ const app = new discord.Client({
               discord.IntentsBitField.Flags.GuildMessages,
               discord.IntentsBitField.Flags.MessageContent]});
 
-let state = utils.load_state();
-
-app.on('ready', function () {
-    console.log('Bot is ready, waiting for events...');
-});
+let state = {};
 
 app.on('guildAvailable', async function (guild) {
-    if (!state[guild.id]) {
-        state[guild.id] = {authorized_users: []};
-    }
-
-    console.log('Joined server: ', guild.name);
+    state[guild.id] = await utils.load_state(guild);
 });
 
 app.on('guildMemberAdd', async function (user) {
@@ -32,14 +24,25 @@ app.on('guildMemberAdd', async function (user) {
 });
 
 app.on('messageCreate', async function (msg) {
+    /* Do not log echoes of our own actions. */
+    if (msg.author.id === msg.client.user.id)
+        return;
+
     console.log(
         `[${msg.guild.name} | ${utils.timestamp()}] <${msg.author.username}> ${msg.content}`);
 
+    if (utils.is_muted(state[msg.guildId], msg.author.id)
+            && !utils.is_operator(state[msg.guildId], config, msg.guildId, msg.author.id)) {
+        console.log(`User ${msg.author.username} is muted, suppressing message.`);
+        await msg.delete();
+        return;
+    }
+
     if (msg.content.startsWith(config.activator)) {
-        if (state[msg.guildId].authorized_users.indexOf(msg.author.id) === -1
-                && config.super_users[msg.guildId].indexOf(msg.author.id) === -1) {
-            console.log('Command attempt with insufficient authorization.');
-            await msg.reply('You are not authorized to used fish.');
+        if (!utils.is_operator(state[msg.guildId], config, msg.guildId, msg.author.id)) {
+            console.log(`Command attempt by non-operator ${msg.author.username}.`);
+            // TODO: maybe just silently fail
+            await msg.reply('That command requires server operator permission.');
             return;
         }
 
@@ -56,16 +59,26 @@ app.on('messageCreate', async function (msg) {
                 case 'reload':
                     console.log('Reloading configuration...');
                     config = utils.load_config();
-                    commands = utils.load_commands();
-                    state = utils.load_state();
+                    for (const gid in state) {
+                        const guild = await utils.fetch_id(app.guilds, gid);
+                        if (guild) state[gid] = await utils.load_state(guild);
+                        else {
+                            console.log(
+                                `[WARNING] Guild with ID ${gid} no longer exists, clearing its state.`);
+                            delete state[gid];
+                        }
+                    }
                     await utils.log_reply(msg, 'Configuration reloaded successfully.');
                     return;
                 default:
                     if (command in commands) {
-                        await commands[command](state[msg.guildId], msg, ...args.slice(1));
+                        const state_modified =
+                            await commands[command](state[msg.guildId], msg, ...args.slice(1));
+                        if (state_modified)
+                            await utils.save_state(msg.guild, state[msg.guildId]);
                         return;
                     }
-                    await utils.log_reply(`No command found matching: ${command}.`);
+                    await utils.log_reply(msg, `No command found matching: ${command}.`);
             }
         } catch (e) {
             console.error(`[ERROR] Error processing command: ${command}`, e);
@@ -75,15 +88,15 @@ app.on('messageCreate', async function (msg) {
 
 app.on('messageUpdate', function (old_msg, msg) {
     console.log(
-        `[${msg.guild.name} | ${utils.timestamp()}] ${msg.author.username} edited a message:`);
-    console.log(`ORIGINALLY: ${old_msg.content}`);
-    console.log(`NOW: ${msg.content}`);
+        `[${msg.guild.name} | ${utils.timestamp()}] A message was edited:`);
+    console.log(`ORIGINALLY: <${old_msg.author.username}> ${old_msg.content}`);
+    console.log(`NOW: <${msg.author.username}> ${msg.content}`);
 });
 
 app.on('messageDelete', function (msg) {
     console.log(
-        `[${msg.guild.name} | ${utils.timestamp()}] ${msg.author.username} deleted a message:`);
-    console.log(`ORIGINALLY: ${msg.content}`);
+        `[${msg.guild.name} | ${utils.timestamp()}] A message was deleted:`);
+    console.log(`ORIGINALLY: <${msg.author.username}> ${msg.content}`);
 });
 
 app.login(config.token);

@@ -1,19 +1,19 @@
 {
-  "name": "fish",
-  "version": "0.0.1",
+  "name": "FISH",
+  "version": "0.1.0",
   "description": "Bot to manage the GT discord server",
   "main": "index.js",
   "scripts": {},
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GeonoTRON2000/fish.git"
+    "url": "git+https://github.com/GeonoTRON2000/FISH.git"
   },
   "author": "GeonoTRON2000",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/GeonoTRON2000/fish/issues"
+    "url": "https://github.com/GeonoTRON2000/FISH/issues"
   },
-  "homepage": "https://github.com/GeonoTRON2000/fish#readme",
+  "homepage": "https://github.com/GeonoTRON2000/FISH#readme",
   "dependencies": {
     "discord.js": "^14.20.0"
   }
