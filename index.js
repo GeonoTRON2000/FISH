@@ -1,4 +1,5 @@
 const utils = require('./utils.js');
+const permissions = require('./permissions.js');
 const commands = require('./commands.js');
 let config = utils.load_config();
 const discord = require('discord.js');
@@ -10,6 +11,11 @@ const app = new discord.Client({
               discord.IntentsBitField.Flags.MessageContent]});
 
 let state = {};
+
+function is_super_user (gid, uid) {
+    return config.super_users && gid in config.super_users
+            && config.super_users[gid].indexOf(uid) !== -1;
+}
 
 app.on('guildAvailable', async function (guild) {
     state[guild.id] = await utils.load_state(guild);
@@ -31,21 +37,17 @@ app.on('messageCreate', async function (msg) {
     console.log(
         `[${msg.guild.name} | ${utils.timestamp()}] <${msg.author.username}> ${msg.content}`);
 
-    if (utils.is_muted(state[msg.guildId], msg.author.id)
-            && !utils.is_operator(state[msg.guildId], config, msg.guildId, msg.author.id)) {
+    /* Super-users can take any action bypassing all permission checks. */
+    const super_user = is_super_user(msg.guildId, msg.author.id);
+
+    if (!super_user && utils.is_muted(state[msg.guildId], msg.author.id)
+            && !permissions.check(state[msg.guildId], msg.author.id, permissions.BYPASS_MUTE)) {
         console.log(`User ${msg.author.username} is muted, suppressing message.`);
         await msg.delete();
         return;
     }
 
     if (msg.content.startsWith(config.activator)) {
-        /* TODO: more nuanced permission model */
-        if (!utils.is_operator(state[msg.guildId], config, msg.guildId, msg.author.id)) {
-            console.log(`Command attempt by non-operator ${msg.author.username}.`);
-            await msg.reply('That command requires server operator permission.');
-            return;
-        }
-
         const args = msg.content
             .substring(config.activator.length)
             .trim()
@@ -54,6 +56,13 @@ app.on('messageCreate', async function (msg) {
         if (args.length < 1) return;
 
         const command = args[0].trim().toLowerCase();
+        if (!super_user
+                && !permissions.check(state[msg.guildId], msg.author.id, command)) {
+            console.log(`Command attempt without permission by user ${msg.author.username}.`);
+            await msg.reply('You do not have permission to execute that command.');
+            return;
+        }
+
         try {
             switch (command) {
                 case 'help':

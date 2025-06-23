@@ -1,6 +1,7 @@
 const utils = require('./utils.js');
+const permissions = require('./permissions.js');
 
-/* TODO: role management? */
+/* TODO: role command or admin/deadmin */
 
 /* FORMAT (inputs): guild state object, message object, parsed args */
 /* FORMAT (output): whether guild state object was modified */
@@ -27,10 +28,12 @@ async function roll (_state, msg, lower_bound, upper_bound) {
     return false;
 }
 
-async function op (state, msg, nickname) {
-    if (!nickname) {
+async function grant (state, msg, nickname, ...perms) {
+    if (!nickname || perms.length < 1) {
         await utils.log_reply(
-            msg, 'Usage: ;op @<user> -- grants the user server operator permission.');
+            msg,
+            'Usage: ;grant @<user> <permission1> [permission2...]'
+                + ' -- grants the user the specified permission(s).');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -40,24 +43,29 @@ async function op (state, msg, nickname) {
         return false;
     }
 
-    if (!state.operators) state.operators = [];
-
-    if (state.operators.indexOf(target.id) === -1) {
-        state.operators.push(target.id);
-        console.log(`User ${target.username} is now a server operator.`);
-        await msg.reply(`${utils.mention(target)} is now a server operator.`);
-        return true;
-    } else {
-        console.log(`User ${target.username} is already a server operator.`);
-        await msg.reply(`${utils.mention(target)} is already a server operator.`);
-        return false;
+    let state_modified = false;
+    for (const perm of perms) {
+        state_modified = permissions.grant(state, target.id, perm) || state_modified;
     }
+
+    if (state_modified) {
+        const perms_granted = perms.join(', ');
+        console.log(`Granted permissions to user ${target.username}: ${perms_granted}`);
+        await msg.reply(`Granted permissions to ${utils.mention(target)}: ${perms_granted}`);
+        return true;
+    }
+
+    console.log(`User ${target.username} already has all these permissions.`);
+    await msg.reply(`${utils.mention(target)} already has all these permissions.`);
+    return false;
 }
 
-async function deop (state, msg, nickname) {
-    if (!nickname) {
+async function revoke (state, msg, nickname, ...perms) {
+    if (!nickname || perms.length < 1) {
         await utils.log_reply(
-            msg, 'Usage: ;deop @<user> -- revokes the user\'s server operator permission.');
+            msg,
+            'Usage: ;revoke @<user> <permission1> [permission2...]'
+                + ' -- revokes the specified permission(s) from the user.');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -67,17 +75,39 @@ async function deop (state, msg, nickname) {
         return false;
     }
 
-    if (state.operators) {
-        const target_idx = state.operators.indexOf(target.id);
-        if (target_idx !== -1) {
-            state.operators.splice(target_idx, 1);
-            console.log(`User ${target.username} is no longer a server operator.`)
-            await msg.reply(`${utils.mention(target)} is no longer a server operator.`);
-            return true;
-        }
+    let state_modified = false;
+    for (const perm of perms) {
+        state_modified = permissions.revoke(state, target.id, perm) || state_modified;
     }
-    console.log(`User ${target.username} is not a server operator.`);
-    await msg.reply(`${utils.mention(target)} is not a server operator.`);
+
+    if (state_modified) {
+        const perms_revoked = perms.join(', ');
+        console.log(`Revoked permissions from user ${target.username}: ${perms_revoked}`);
+        await msg.reply(`Revoked permissions from ${utils.mention(target)}: ${perms_revoked}`);
+        return true;
+    }
+
+    console.log(`User ${target.username} does not have any of these permissions.`);
+    await msg.reply(`${utils.mention(target)} does not have any of these permissions.`);
+    return false;
+}
+
+async function check_perms (state, msg, nickname) {
+    if (!nickname) {
+        await utils.log_reply(
+            msg, 'Usage: ;check_perms @<user> -- displays the user\'s permissions.');
+        return false;
+    }
+    const target = await utils.find_nick(msg, nickname);
+    if (!target) {
+        await utils.log_reply(
+            msg, `Could not find user matching "${nickname}", please be more specific.`);
+        return false;
+    }
+
+    const perms = permissions.view(state, target.id).join(', ');
+    console.log(`User ${target.username} has permissions: ${perms}`);
+    await msg.reply(`${utils.mention(target)} has permissions: ${perms}`);
     return false;
 }
 
@@ -257,4 +287,4 @@ async function invite (_state, msg, nickname) {
     return false;
 }
 
-module.exports = { roll, op, deop, mute, unmute, kick, ban, unban, invite };
+module.exports = { roll, grant, revoke, check_perms, mute, unmute, kick, ban, unban, invite };

@@ -22,7 +22,7 @@ async function load_state (guild) {
         return state;
     } catch {
         console.warn(`[WARNING] Unable to load state for ${guild.name}.`);
-        return {operators: [], mutes: []};
+        return {permissions: {}, mutes: []};
     }
 }
 
@@ -34,12 +34,6 @@ async function save_state (guild, state) {
         console.warn(
             `[WARNING] Unable to save state for ${guild.name}, a crash may result in data loss.`);
     }
-}
-
-function is_operator (state, config, gid, uid) {
-    return (state?.operators && state.operators.indexOf(uid) !== -1)
-            || (config.super_users && gid in config.super_users
-                    && config.super_users[gid].indexOf(uid) !== -1);
 }
 
 function is_muted (state, uid) {
@@ -85,5 +79,5 @@ async function fetch_id (manager, id) {
 }
 
 module.exports =
-    { timestamp, mention, load_config, load_state, save_state, is_operator,
+    { timestamp, mention, load_config, load_state, save_state,
         is_muted, log_reply, find_nick, find_exact, fetch_id };
