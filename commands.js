@@ -29,7 +29,8 @@ async function roll (_state, msg, lower_bound, upper_bound) {
 
 async function op (state, msg, nickname) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;op @<user>');
+        await utils.log_reply(
+            msg, 'Usage: ;op @<user> -- grants the user server operator permission.');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -55,7 +56,8 @@ async function op (state, msg, nickname) {
 
 async function deop (state, msg, nickname) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;deop @<user>');
+        await utils.log_reply(
+            msg, 'Usage: ;deop @<user> -- revokes the user\'s server operator permission.');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -81,7 +83,8 @@ async function deop (state, msg, nickname) {
 
 async function mute (state, msg, nickname) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;mute @<user>');
+        await utils.log_reply(
+            msg, 'Usage: ;mute @<user> -- prevents the user from typing in text channels.');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -107,7 +110,8 @@ async function mute (state, msg, nickname) {
 
 async function unmute (state, msg, nickname) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;unmute @<user>');
+        await utils.log_reply(
+            msg, 'Usage: ;unmute @<user> -- enables a muted user to type in text channels.');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -133,7 +137,10 @@ async function unmute (state, msg, nickname) {
 
 async function kick (_state, msg, nickname, ...reason) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;kick @<user> [reason...]');
+        await utils.log_reply(
+            msg,
+            'Usage: ;kick @<user> [reason...]'
+                + ' -- removes the user from the server with the specified reason.');
         return false;
     }
     const target = await utils.find_nick(
@@ -147,7 +154,13 @@ async function kick (_state, msg, nickname, ...reason) {
     if (reason) reason = reason.filter(s => s.length > 0).join(' ').trim();
     if (reason.length < 1) reason = 'Kicked by server operator.';
 
-    await msg.guild.members.kick(target.id, reason);
+    try {
+        await msg.guild.members.kick(target.id, reason);
+    } catch {
+        console.log(`FISH does not have permission to kick user ${target.username}.`);
+        await msg.reply(`FISH does not have permission to kick ${utils.mention(target)}.`);
+        return false;
+    }
     console.log(`Kicked user ${target.username} with reason: ${reason}`);
     await msg.reply(`Kicked ${utils.mention(target)} with reason: ${reason}`);
     return false;
@@ -155,7 +168,11 @@ async function kick (_state, msg, nickname, ...reason) {
 
 async function ban (_state, msg, nickname, ...reason) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;ban @<user> [reason...]');
+        await utils.log_reply(
+            msg,
+            'Usage: ;ban @<user> [reason...]'
+                + ' -- removes the user from the server with the specified reason,'
+                + ' and prevents them from re-joining.');
         return false;
     }
     const target = await utils.find_nick(msg, nickname);
@@ -168,7 +185,13 @@ async function ban (_state, msg, nickname, ...reason) {
     if (reason) reason = reason.filter(s => s.length > 0).join(' ').trim();
     if (reason.length < 1) reason = 'Banned by server operator.';
 
-    await msg.guild.bans.create(target.id, { reason });
+    try {
+        await msg.guild.bans.create(target.id, { reason });
+    } catch {
+        console.log(`FISH does not have permission to ban user ${target.username}.`);
+        await msg.reply(`FISH does not have permission to ban ${utils.mention(target)}.`);
+        return false;
+    }
     console.log(`Banned user ${target.username} with reason: ${reason}`);
     await msg.reply(`Banned ${utils.mention(target)} with reason: ${reason}`);
     return false;
@@ -176,14 +199,18 @@ async function ban (_state, msg, nickname, ...reason) {
 
 async function unban (_state, msg, nickname, ...reason) {
     if (!nickname) {
-        await utils.log_reply(msg, 'Usage: ;unban @<user> [reason...]');
+        await utils.log_reply(
+            msg,
+            'Usage: ;unban @<user> [reason...]'
+                + ' -- enables a banned user to re-join the server with the specified reason.');
         return false;
     }
 
-    const target = await utils.find_banned(msg, nickname);
+    const target = await utils.find_exact(msg, nickname);
     if (!target) {
         await utils.log_reply(
-            msg, `Banned users cannot be intuited from nicknames, please tag "${nickname}" directly.`);
+            msg,
+            `Non-server members cannot be intuited from nicknames, please tag "${nickname}" directly.`);
         return false;
     }
 
@@ -202,4 +229,32 @@ async function unban (_state, msg, nickname, ...reason) {
     return false;
 }
 
-module.exports = { roll, op, deop, mute, unmute, kick, ban, unban };
+async function invite (_state, msg, nickname) {
+    if (!nickname) {
+        await utils.log_reply(msg, 'Usage: ;invite @<user> -- invites a user to the server.');
+        return false;
+    }
+
+    const target = await utils.find_exact(msg, nickname);
+    if (!target) {
+        await utils.log_reply(
+            msg,
+            `Non-server members cannot be intuited from nicknames, please tag "${nickname}" directly.`);
+        return false;
+    }
+
+    try {
+        const invite = await msg.guild.invites.create(
+            msg.channelId, { maxAge: 0, maxUses: 1, unique: true });
+        await target.send(`You are invited to join ${msg.guild.name}! ${invite.url}`);
+    } catch {
+        await utils.log_reply(msg, 'Failed to send invite.');
+        return false;
+    }
+
+    console.log(`Invite to ${msg.guild.name} sent to user ${target.username}.`);
+    await msg.reply(`Invite sent to ${utils.mention(target)}.`);
+    return false;
+}
+
+module.exports = { roll, op, deop, mute, unmute, kick, ban, unban, invite };

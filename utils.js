@@ -69,7 +69,7 @@ async function find_nick (msg, nickname, uid_handler) {
     return false;
 }
 
-async function find_banned(msg, nickname) {
+async function find_exact(msg, nickname) {
     if (nickname.startsWith('<@') && nickname.endsWith('>'))
         return await fetch_id(msg.client.users, nickname.substring(2, nickname.length - 1));
 
@@ -86,4 +86,4 @@ async function fetch_id (manager, id) {
 
 module.exports =
     { timestamp, mention, load_config, load_state, save_state, is_operator,
-        is_muted, log_reply, find_nick, find_banned, fetch_id };
+        is_muted, log_reply, find_nick, find_exact, fetch_id };

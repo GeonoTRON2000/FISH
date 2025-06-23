@@ -39,9 +39,9 @@ app.on('messageCreate', async function (msg) {
     }
 
     if (msg.content.startsWith(config.activator)) {
+        /* TODO: more nuanced permission model */
         if (!utils.is_operator(state[msg.guildId], config, msg.guildId, msg.author.id)) {
             console.log(`Command attempt by non-operator ${msg.author.username}.`);
-            // TODO: maybe just silently fail
             await msg.reply('That command requires server operator permission.');
             return;
         }
@@ -56,6 +56,10 @@ app.on('messageCreate', async function (msg) {
         const command = args[0].trim().toLowerCase();
         try {
             switch (command) {
+                case 'help':
+                    const command_names = Object.keys(commands).join(', ');
+                    await utils.log_reply(msg, `Registered commands: ${command_names}`);
+                    return;
                 case 'reload':
                     console.log('Reloading configuration...');
                     config = utils.load_config();
