@@ -35,7 +35,8 @@ app.on('messageCreate', async function (msg) {
         return;
 
     console.log(
-        `[${msg.guild.name} | ${utils.timestamp()}] <${msg.author.username}> ${msg.content}`);
+        `[${msg.guild.name} | ${utils.timestamp()}] (#${msg.channel.name})`
+            + ` <${msg.author.username}> ${msg.content}`);
 
     /* Super-users can take any action bypassing all permission checks. */
     const super_user = is_super_user(msg.guildId, msg.author.id);

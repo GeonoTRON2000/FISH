@@ -36,7 +36,8 @@ async function grant (state, msg, nickname, ...perms) {
                 + ' -- grants the user the specified permission(s).');
         return false;
     }
-    const target = await utils.find_nick(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname)
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find user matching "${nickname}", please be more specific.`);
@@ -68,7 +69,8 @@ async function revoke (state, msg, nickname, ...perms) {
                 + ' -- revokes the specified permission(s) from the user.');
         return false;
     }
-    const target = await utils.find_nick(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname)
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find user matching "${nickname}", please be more specific.`);
@@ -98,7 +100,8 @@ async function check_perms (state, msg, nickname) {
             msg, 'Usage: ;check_perms @<user> -- displays the user\'s permissions.');
         return false;
     }
-    const target = await utils.find_nick(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname)
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find user matching "${nickname}", please be more specific.`);
@@ -117,7 +120,8 @@ async function mute (state, msg, nickname) {
             msg, 'Usage: ;mute @<user> -- prevents the user from typing in text channels.');
         return false;
     }
-    const target = await utils.find_nick(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname)
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find user matching "${nickname}", please be more specific.`);
@@ -144,7 +148,8 @@ async function unmute (state, msg, nickname) {
             msg, 'Usage: ;unmute @<user> -- enables a muted user to type in text channels.');
         return false;
     }
-    const target = await utils.find_nick(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname)
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find user matching "${nickname}", please be more specific.`);
@@ -165,6 +170,51 @@ async function unmute (state, msg, nickname) {
     return false;
 }
 
+async function role (_state, msg, action, nickname, ...roles) {
+    if (!action || !nickname || roles.length < 1) {
+        await utils.log_reply(
+            msg, 'Usage: ;role <add|remove> @<user> @<role1> [@<role2>...]'
+                + ' -- adds the specified roles to, or removes them from, the user.');
+        return false;
+    }
+
+    const actions = ['add', 'remove'];
+    const action_idx = actions.indexOf(action.toLowerCase());
+    if (action_idx === -1) {
+        await utils.log_reply(msg, `Supported actions are: ${actions.join(', ')}`);
+        return false;
+    }
+
+    const target = await utils.fetch_guild_member(msg, nickname)
+                    || await utils.search_guild_member(msg, nickname);
+    if (!target) {
+        await utils.log_reply(
+            msg, `Could not find user matching "${nickname}", please be more specific.`);
+        return false;
+    }
+
+    roles = await utils.fetch_roles(msg, roles);
+    if (!roles) {
+        await utils.log_reply(
+            msg, 'One or more roles could not be resolved, please tag them directly.');
+        return false;
+    }
+
+    // TODO: try/catch
+    switch (action_idx) {
+        case 0:
+            await Promise.all(roles.map(rid => target.roles.add(rid)));
+            console.log(`Role(s) added to user ${target.user.username}.`);
+            await msg.reply(`Role(s) added to ${utils.mention(target.user)}.`);
+            return false;
+        case 1:
+            await Promise.all(roles.map(rid => target.roles.remove(rid)));
+            console.log(`Role(s) removed from user ${target.user.username}.`);
+            await msg.reply(`Role(s) removed from ${utils.mention(target.user)}.`);
+            return false;
+    }
+}
+
 async function kick (_state, msg, nickname, ...reason) {
     if (!nickname) {
         await utils.log_reply(
@@ -173,8 +223,8 @@ async function kick (_state, msg, nickname, ...reason) {
                 + ' -- removes the user from the server with the specified reason.');
         return false;
     }
-    const target = await utils.find_nick(
-        msg, nickname, async uid => (await utils.fetch_id(msg.guild.members, uid))?.user);
+    const target = (await utils.fetch_guild_member(msg, nickname))?.user
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find server member matching "${nickname}", please be more specific.`);
@@ -205,7 +255,8 @@ async function ban (_state, msg, nickname, ...reason) {
                 + ' and prevents them from re-joining.');
         return false;
     }
-    const target = await utils.find_nick(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname)
+                    || (await utils.search_guild_member(msg, nickname))?.user;
     if (!target) {
         await utils.log_reply(
             msg, `Could not find user matching "${nickname}", please be more specific.`);
@@ -236,7 +287,7 @@ async function unban (_state, msg, nickname, ...reason) {
         return false;
     }
 
-    const target = await utils.find_exact(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname);
     if (!target) {
         await utils.log_reply(
             msg,
@@ -265,7 +316,7 @@ async function invite (_state, msg, nickname) {
         return false;
     }
 
-    const target = await utils.find_exact(msg, nickname);
+    const target = await utils.fetch_user(msg, nickname);
     if (!target) {
         await utils.log_reply(
             msg,
@@ -287,4 +338,5 @@ async function invite (_state, msg, nickname) {
     return false;
 }
 
-module.exports = { roll, grant, revoke, check_perms, mute, unmute, kick, ban, unban, invite };
+module.exports = { roll, grant, revoke, check_perms, mute, unmute,
+                    role, kick, ban, unban, invite };
