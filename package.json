@@ -3,7 +3,9 @@
   "version": "0.2.0",
   "description": "Bot to manage the GT discord server",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "start": "node index.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GeonoTRON2000/FISH.git"
